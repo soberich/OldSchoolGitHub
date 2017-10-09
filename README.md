@@ -1,7 +1,7 @@
 # OldSchoolGitHub
 
 Long Story short = 
-Pattern B by Vigil Google IO 2010 (Content Provider API)
+Pattern B by Virgil Dobjanschi Google IO 2010 (Content Provider API)
 
 Loads dynamically (on scroll) data using CursorLoader to RecyclerView from GitHub users API through Retrofit2.
 CursorLoader loads data from ContentProvider
