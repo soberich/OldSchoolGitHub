@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout>
+
     <data>
-        <variable name="user" type="soberich.oldstylegithub.UserEntity"/>
+
+        <variable
+            name="user"
+            type="soberich.oldstylegithub.UserEntity" />
     </data>
+
     <android.support.v7.widget.CardView
         xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -10,11 +15,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="8dp"
+        android:clickable="true"
         android:fitsSystemWindows="true"
+        android:focusable="true"
         app:cardCornerRadius="@dimen/cardview_default_radius"
         app:cardUseCompatPadding="true"
-        android:clickable="true"
-        android:focusable="true"
 
         >
 
@@ -26,7 +31,6 @@
             >
 
             <ImageView
-                app:imageUrl="@{user.avatarUrl}"
                 android:id="@+id/avatar_in_list"
                 android:layout_width="150dp"
                 android:layout_height="150dp"
@@ -35,6 +39,7 @@
                 android:cropToPadding="false"
                 android:fitsSystemWindows="true"
                 android:scaleType="centerCrop"
+                app:imageUrl="@{user.avatarUrl}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/login"
                 app:layout_constraintStart_toStartOf="parent"
@@ -43,18 +48,17 @@
                 />
 
             <TextView
-                android:text="@{user.login + user.id + user.name, default=NO_NAME}"
                 android:id="@+id/login"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:layout_margin="4dp"
                 android:fitsSystemWindows="true"
+                android:text="@{user.login + ` ` + Integer.toString(user.id) + ` ` + user.name, default=NO_NAME}"
+                android:textAlignment="center"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/avatar_in_list"
-                app:layout_constraintTop_toTopOf="parent"
-                android:textAlignment="center"
-                />
+                app:layout_constraintTop_toTopOf="parent" />
 
         </android.support.constraint.ConstraintLayout>
     </android.support.v7.widget.CardView>

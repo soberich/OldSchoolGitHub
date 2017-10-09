@@ -4,8 +4,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
+        android:name=".App"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -42,8 +45,7 @@
         <service
             android:name=".FetchUsersJobIntentService"
             android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE"
-            android:description="Syncing data for OldSchool GitHub app" />
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 
 </manifest>

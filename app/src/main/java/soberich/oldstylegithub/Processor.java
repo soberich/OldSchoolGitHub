@@ -3,6 +3,7 @@ package soberich.oldstylegithub;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.util.Log;
 
 import java.util.List;
 
@@ -16,16 +17,19 @@ import static soberich.oldstylegithub.GitHubUsersContentProvider.*;
  */
 
 public final class Processor {
-    private static final String TAG = Processor.class.getName();
-
+    //private static final String TAG = Processor.class.getName();
+    private static final String TAG = "WholeApp";
     private Context mContext;
-    // TODO Di
+
+    // TODO: 10/1/17 @Inject Context
     @Inject
-    public Processor(Context context) {
-        mContext = context;
+    public Processor(Context c) {
+        this.mContext = c;
     }
 
     public void dispatchBulkUsers(List<UserEntity> users) {
+        Log.d(TAG, "Processor.dispatchBulkUsers() called with: users = [" + users + "]");
+        Log.d(TAG, "Processor.dispatchBulkUsers() Thread is - " + Thread.currentThread().getName());
         ContentValues[] contentValues = new ContentValues[users.size()];
         ContentResolver cr = mContext.getContentResolver();
         for (int i = 0, usersSize = users.size(); i < usersSize; i++) {
@@ -40,6 +44,7 @@ public final class Processor {
     }
 
     public void dispatchSingleUser(UserEntity user) {
+        Log.d(TAG, "dispatchSingleUser() called with: user = [" + user + "]");
         ContentValues cv = new ContentValues();
         ContentResolver cr = mContext.getContentResolver();
         cv.put(ID_COLUMN_TITLE, user.getId());

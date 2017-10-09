@@ -1,28 +1,28 @@
 package soberich.oldstylegithub;
 
-import android.app.LoaderManager;
 import android.content.Context;
-import android.content.CursorLoader;
 import android.content.Intent;
-import android.content.Loader;
 import android.database.Cursor;
 import android.databinding.DataBindingUtil;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
-import android.support.v4.widget.SimpleCursorAdapter;
+import android.support.v4.app.ActivityOptionsCompat;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
+import android.support.v4.util.Pair;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.Toolbar;
-import android.view.LayoutInflater;
+import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import soberich.oldstylegithub.databinding.UserListContentBinding;
+import soberich.oldstylegithub.UserList.MyRecyclerAdapter;
+import soberich.oldstylegithub.databinding.ActivityUserListBinding;
 
 import static soberich.oldstylegithub.GitHubUsersContentProvider.AVATAR_URL_COLUMN_TITLE;
 import static soberich.oldstylegithub.GitHubUsersContentProvider.ID_COLUMN_TITLE;
@@ -39,25 +39,35 @@ import static soberich.oldstylegithub.GitHubUsersContentProvider.NAME_COLUMN_TIT
  */
 public class UserListActivity extends AppCompatActivity
         implements LoaderManager.LoaderCallbacks<Cursor> {
-
+    //private static final String TAG = "UserListActivity";
+    private static final String TAG = "WholeApp";
+    public static final String SINCE = "SINCE";
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
      * device.
      */
     private boolean mTwoPane;
-    private MyRecyclerViewAdapter mAdapter;
+    private MyRecyclerAdapter mAdapter;
+    private ActivityUserListBinding mBinding;
+    private List<UserEntity> list = new ArrayList<>();
+    private MyRecyclerAdapter.IOnItemClickListener onListItemClickListener;
+    private RecyclerView mRecyclerView;
+
+    private int previousTotal;
+    private boolean loading = true;
+    private final int visibleThreshold = 5;
+    private int firstVisibleItem, visibleItemCount, totalItemCount;
+    private int since = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_user_list);
-
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        toolbar.setTitle(getTitle());
+        mBinding
+                = DataBindingUtil.setContentView(this, R.layout.activity_user_list);
+        setSupportActionBar(mBinding.toolbar);
+        mBinding.toolbar.setTitle(getTitle());
         // TODO Undo listener
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        mBinding.fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
@@ -72,137 +82,151 @@ public class UserListActivity extends AppCompatActivity
             // activity should be in two-pane mode.
             mTwoPane = true;
         }
+        //Log.d("fuck", onListItemClickListener.toString() + " " + String.valueOf(onListItemClickListener == null));
+        assert onListItemClickListener != null;
+        initOnItemClickListener();
 
-        View recyclerView = findViewById(R.id.user_list);
-        assert recyclerView != null;
-        setupRecyclerView((RecyclerView) recyclerView);
+        //Log.d("fuck", onListItemClickListener.toString() + " " + String.valueOf(onListItemClickListener == null));
+
+        mRecyclerView = findViewById(R.id.user_list);
+        assert mRecyclerView != null;
+        setupRecyclerView(mRecyclerView, onListItemClickListener);
+        setupRecyclerViewScrollListener(mRecyclerView);
 
 
         // создаем лоадер для чтения данных
-        getSupportLoaderManager().initLoader(0, null, (android.support.v4.app.LoaderManager.LoaderCallbacks<Object>) this);
+        Bundle bundle = new Bundle(1);
+        bundle.putString(SINCE, String.valueOf(since));
+        getSupportLoaderManager().initLoader(0, bundle, this);
+//        if(getSupportLoaderManager().getLoader(0) == null) {
+//            getSupportLoaderManager().initLoader(0, null, this);
+//        } else {
+//            getSupportLoaderManager().restartLoader(0, null, this);
+//        }
 
     }
 
-    private void setupRecyclerView(@NonNull RecyclerView recyclerView) {
-        mAdapter = new MyRecyclerViewAdapter(this, null, mTwoPane);
+    private void setupRecyclerViewScrollListener(RecyclerView recyclerView) {
+        final RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+
+                visibleItemCount = recyclerView.getChildCount();
+                //Log.d(TAG, "visibleItemCount: " + visibleItemCount);
+                totalItemCount = recyclerView.getLayoutManager() .getItemCount();
+                //Log.d(TAG, "totalItemCount: " + totalItemCount);
+                firstVisibleItem = ((LinearLayoutManager) recyclerView.getLayoutManager()).findFirstVisibleItemPosition();
+                //Log.d(TAG, "firstVisibleItem: " + firstVisibleItem);
+                if (loading) {
+                    if (totalItemCount > previousTotal) {
+                        loading = false;
+                        previousTotal = totalItemCount;
+                    }
+                }
+                if (!loading && (totalItemCount - visibleItemCount)
+                        <= (firstVisibleItem + visibleThreshold)) {
+                    Bundle bundle = new Bundle(1);
+                    bundle.putString(SINCE, String.valueOf(since));
+                    getSupportLoaderManager().restartLoader(0, bundle, UserListActivity.this);
+
+                    //viewModel.loadUsers(viewModel.getAllUsers().get(viewModel.getAllUsers().size() - 1).getId());
+
+                    loading = true;
+                }
+            }
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private void initOnItemClickListener() {
+        //if (onListItemClickListener == null) {
+            onListItemClickListener = new MyRecyclerAdapter.IOnItemClickListener<UserEntity>() {
+                @Override
+                public void onItemClick(View view, int position, UserEntity user) {
+                    Log.d(TAG, "onItemClick() called with: view = [" + view + "], position = [" + position + "], user = [" + user + "]");
+                    String identifier = user.getLogin();
+                    if (mTwoPane) {
+                        Bundle arguments = new Bundle();
+                        arguments.putString(UserDetailFragment.ARG_ITEM_ID, identifier);
+                        UserDetailFragment fragment = new UserDetailFragment();
+                        fragment.setArguments(arguments);
+                        UserListActivity.this.getSupportFragmentManager().beginTransaction()
+                                .replace(R.id.user_detail_container, fragment)
+                                .commit();
+                    } else {
+                        Log.d(TAG, "onItemClick() called with: view: "+user.getLogin());
+                        Context context = view.getContext();
+                        Intent intent = new Intent(context, UserDetailActivity.class);
+                        intent.putExtra(UserDetailFragment.ARG_ITEM_ID, identifier);
+                        view.setTransitionName(identifier);
+                        ActivityOptionsCompat activityOptions
+                                = ActivityOptionsCompat.makeSceneTransitionAnimation(
+                                UserListActivity.this,
+                                // Now we provide a list of Pair items which contain the view we can transitioning
+                                // from, and the name of the view it is transitioning to, in the launched activity
+                                Pair.create(view, identifier)
+                        );
+
+                        context.startActivity(intent, activityOptions.toBundle());
+                        // END_INCLUDE(on_click)
+                    }
+                }
+            };
+        //}
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setupRecyclerView(@NonNull RecyclerView recyclerView,
+                                   @NonNull MyRecyclerAdapter.IOnItemClickListener onClickListener) {
+        mAdapter = new MyRecyclerAdapter<>(R.layout.user_list_content, BR.user, list);
+        mAdapter.setOnItemClickListener(onClickListener);
         recyclerView.setAdapter(mAdapter);
     }
 
     @Override
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
-
+        Log.d(TAG, "onCreateLoader() called with: i = [" + i + "], bundle = [" + bundle + "]");
+        Log.d(TAG, "onCreateLoader() Thread is - " + Thread.currentThread().getName());
         return new CursorLoader(this,
                 UsersContract.Users.USERS_URI,
                 GitHubUsersContentProvider.PROJECTION,
                 "id > ?",
-                new String[]{"0"}, // TODO switch to Bundle Int tp handle killing process and config change
-                UsersContract.Users.DEFAULT_SORT_ORDER);
+                new String[]{ bundle.getString(SINCE) }, // TODO switch to Bundle Int to handle killing process and config change
+                null);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void onLoadFinished(Loader<Cursor> loader, Cursor c) {
-        mAdapter.swapCursor(c);
+        Log.d(TAG, "onLoadFinished() called with: loader = [" + loader + "], c = [" + c + "]");
+        Log.d(TAG, "onLoadFinished() Thread is - " + Thread.currentThread().getName());
+        ArrayList<UserEntity> list = new ArrayList<>(30);
+        int count = 1;
+        for (c.moveToFirst(); !c.isAfterLast(); c.moveToNext()) {
+            UserEntity user = new UserEntity();
+            user.setAvatarUrl(c.getString(c.getColumnIndex(AVATAR_URL_COLUMN_TITLE)));
+            user.setLogin(c.getString(c.getColumnIndex(LOGIN_COLUMN_TITLE)));
+            user.setName(c.getString(c.getColumnIndex(NAME_COLUMN_TITLE)));
+            user.setId(c.getInt(c.getColumnIndex(ID_COLUMN_TITLE)));
+            Log.d(TAG, "Cursor contains USER: " + String.valueOf(count++) + " " + user.getLogin() + user.getId());
+            list.add(user);
+        }
+        mAdapter.addItems(list);
+        mAdapter.notifyDataSetChanged();
+        Log.d("fuck", ""+since);
+        since = list.size() != 0 ? list.get(list.size()-1).getId() : 0;
+        Log.d("fuck", ""+since);
+        //getSupportLoaderManager().destroyLoader(0);
 
     }
 
     @Override
     public void onLoaderReset(Loader<Cursor> loader) {
-        mAdapter.swapCursor(null);
-    }
-
-    public static class MyRecyclerViewAdapter
-            extends RecyclerView.Adapter<MyRecyclerViewAdapter.ViewHolder> {
-
-
-        private UserListContentBinding mBinding;
-
-        private final UserListActivity mParentActivity;
-        private final List<UserEntity> mValues;
-        private final Cursor mCursor;
-        private final boolean mTwoPane;
-        private final View.OnClickListener mOnClickListener = new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                UserEntity item = (UserEntity) view.getTag();
-                if (mTwoPane) {
-                    Bundle arguments = new Bundle();
-                    arguments.putString(UserDetailFragment.ARG_ITEM_ID, item.getLogin());
-                    UserDetailFragment fragment = new UserDetailFragment();
-                    fragment.setArguments(arguments);
-                    mParentActivity.getSupportFragmentManager().beginTransaction()
-                            .replace(R.id.user_detail_container, fragment)
-                            .commit();
-                } else {
-                    Context context = view.getContext();
-                    Intent intent = new Intent(context, UserDetailActivity.class);
-                    intent.putExtra(UserDetailFragment.ARG_ITEM_ID, item.getLogin());
-
-                    context.startActivity(intent);
-                }
-            }
-        };
-
-        //TODO @Inject
-        MyRecyclerViewAdapter(UserListActivity parent,
-                              Cursor users,
-                              boolean twoPane) {
-            mCursor = users;
-            mParentActivity = parent;
-            mTwoPane = twoPane;
-            mValues = new ArrayList<>(users.getColumnCount() == 0 ? 1 : users.getColumnCount());
-        }
-
-        @Override
-        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-
-            mBinding = DataBindingUtil
-                    .inflate(LayoutInflater.from(parent.getContext())
-                            , R.layout.user_list_content
-                            , parent
-                            , false);
-
-            return new ViewHolder(mBinding);
-        }
-
-        @Override
-        public void onBindViewHolder(final ViewHolder holder, int position) {
-            holder.mBinding.setUser(mValues.get(position));
-            holder.itemView.setOnClickListener(mOnClickListener);
-        }
-
-        @Override
-        public int getItemCount() {
-            return mValues.size();
-        }
-
-
-        public Cursor swapCursor(Cursor c) {
-
-            for (c.moveToFirst(); !c.isAfterLast(); c.moveToNext()) {
-                UserEntity user = new UserEntity();
-                user.setId(c.getInt(c.getColumnIndex(ID_COLUMN_TITLE)));
-                user.setLogin(c.getString(c.getColumnIndex(AVATAR_URL_COLUMN_TITLE)));
-                user.setName(c.getString(c.getColumnIndex(NAME_COLUMN_TITLE)));
-                user.setAvatarUrl(c.getString(c.getColumnIndex(AVATAR_URL_COLUMN_TITLE)));
-                mValues.add(user);
-            }
-
-            return new SimpleCursorAdapter(mParentActivity.getApplicationContext(),
-                    R.layout.user_list_content,
-                    mCursor,
-                    new String[]{AVATAR_URL_COLUMN_TITLE, AVATAR_URL_COLUMN_TITLE },
-                    new int[]{R.id.avatar_in_list, R.id.login},
-                    0).swapCursor(c);
-        }
-
-
-        public static class ViewHolder extends RecyclerView.ViewHolder {
-            private final UserListContentBinding mBinding;
-
-            ViewHolder(UserListContentBinding binding) {
-                super(binding.getRoot());
-                this.mBinding = binding;
-            }
-        }
+        Log.d(TAG, "onLoaderReset() called with: loader = [" + loader + "]");
+        Log.d(TAG, "onLoaderReset() Thread is - " + Thread.currentThread().getName());
+        //TODO need more convenient solution here (suppose the cursor may not have been closed, regardless the Cont.Provider should close it upon its killing)
+        //mAdapter.notifyItemRangeRemoved(0, mAdapter.getItemCount());
     }
 }

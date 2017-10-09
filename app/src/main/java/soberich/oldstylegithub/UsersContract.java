@@ -26,7 +26,8 @@ public final class UsersContract {
         public static final Uri USER_LOGIN_URI_PATTERN = Uri.parse(SCHEME + AUTHORITY + PATH_USER_LOGIN + "/#");
         public static final String CONTENT_TYPE = "vnd.android.cursor.dir/vnd." + AUTHORITY + "." + TABLE_NAME;
         public static final String CONTENT_ITEM_TYPE = "vnd.android.cursor.item/vnd." + AUTHORITY + "." + TABLE_NAME;
-        public static final String DEFAULT_SORT_ORDER = "id DESC";
+        public static final String DEFAULT_SORT_ORDER = "id ASC";
+        public static final String DEFAULT_LIMIT = "30";
         private Users() {}
     }
 }

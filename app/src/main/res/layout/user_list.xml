@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<layout>
 <android.support.v7.widget.RecyclerView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -12,3 +13,4 @@
     app:layoutManager="LinearLayoutManager"
     tools:context="soberich.oldstylegithub.UserListActivity"
     tools:listitem="@layout/user_list_content" />
+</layout>
